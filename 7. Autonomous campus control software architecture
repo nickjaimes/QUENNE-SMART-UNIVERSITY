@@ -1,0 +1,365 @@
+Quenne Smart University: Autonomous Campus Control Software Architecture
+
+Version: 1.0
+Date: [Current Date]
+Document ID: QSU-SW-ARCH-001
+Classification: Technical Architecture
+
+---
+
+1. Introduction
+
+The Quenne Smart University (QSU) is designed as an autonomous cyber‑physical ecosystem. At its heart lies the Autonomous Campus Control Software (ACCS) —a distributed, intelligent software system that continuously senses, decides, and acts to optimize campus operations, enhance human experiences, and ensure safety. The ACCS integrates AI, real‑time control, and human oversight across all five physical zones.
+
+This document defines the architecture of the ACCS, detailing its components, interactions, data flows, and the principles that guide its autonomous behavior.
+
+1.1 Scope
+
+The ACCS encompasses all software responsible for:
+
+· Sensing the campus state (via IoT, wearables, building systems).
+· Making autonomous decisions (from energy optimization to personalized learning interventions).
+· Executing actions (controlling HVAC, robots, AR/VR content, mobility).
+· Maintaining safety and ethical boundaries.
+· Learning from outcomes to improve future decisions.
+
+It does not include the low‑level firmware of individual devices or the purely informational services (e.g., student portal), but it integrates with them through APIs.
+
+1.2 Definitions
+
+· Autonomy Level: The degree to which the system can operate without human intervention. QSU operates at Level 3 (Conditional Autonomy) for most functions, with Level 4 (High Autonomy) in isolated, well‑defined domains (e.g., energy microgrid).
+· Control Loop: A cycle of sense–decide–act. Loops exist at multiple timescales (milliseconds to days) and spatial scales (device to campus‑wide).
+
+---
+
+2. Design Principles
+
+1. Hierarchical Autonomy: Decisions are made at the most appropriate level (edge for fast reactions, core for global optimization). Higher levels can override lower levels.
+2. Safety First: All autonomous actions are constrained by a safety envelope. Hardware and software interlocks prevent dangerous states.
+3. Human‑in‑the‑Loop (HITL): Critical decisions require human approval; humans can intervene at any time.
+4. Observability: Every decision and its rationale are logged and explainable.
+5. Modularity: Components are loosely coupled, allowing independent evolution and replacement.
+6. Resilience: The system degrades gracefully during failures; local autonomy persists even when disconnected from the core.
+7. Privacy‑Preserving: Personal data is processed at the edge whenever possible; consent is enforced at all levels.
+
+---
+
+3. High‑Level Architecture
+
+The ACCS is a distributed, event‑driven system consisting of software components running across the edge (zone micro data centers) and the core (Zone 1). It is built on the Linux orchestration foundation described in the companion document.
+
+3.1 Logical Layers
+
+Layer Purpose Key Components
+Orchestration Layer Global optimization, long‑term planning, model training Cognitive Core Interface, Global Decision Engine, Digital Twin, Model Training Service
+Coordination Layer Zone‑level coordination, real‑time control loops Zone Controllers, Safety Monitor, Actuation Manager
+Execution Layer Direct device control, sensor data acquisition Device Adapters, Sensor Fusion, Edge AI runners
+Integration Layer Communication between layers, external APIs Message Bus (Kafka), API Gateway, Service Mesh
+
+3.2 High‑Level Component Diagram
+
+```
++---------------------+      +---------------------+
+|   Global Decision   |      |    Digital Twin     |
+|       Engine        |<---->|    (Simulation)     |
++---------------------+      +---------------------+
+         ^                              ^
+         | (commands/goals)             | (state sync)
+         v                              v
++-----------------------------------------------------+
+|            Cognitive Core Interface (Zone 1)        |
++-----------------------------------------------------+
+         ^                              ^
+         | (zone states)                 | (optimized targets)
+         v                              v
++-----------------------------------------------------+
+|                Message Bus (Kafka)                  |
++-----------------------------------------------------+
+    ^            ^            ^            ^
+    | (zone)     | (zone)     | (zone)     | (zone)
+    v            v            v            v
++----------+ +----------+ +----------+ +----------+
+| Zone 2   | | Zone 3   | | Zone 4   | | Zone 5   |
+|Controller| |Controller| |Controller| |Controller|
++----------+ +----------+ +----------+ +----------+
+    |              |             |             |
+    v              v             v             v
+(Edge Devices, Robots, Sensors, Actuators in each zone)
+```
+
+---
+
+4. Core Components
+
+4.1 Cognitive Core Interface (CCI)
+
+Residing in Zone 1, the CCI is the gateway between the central intelligence and the rest of the campus. It:
+
+· Aggregates state information from all zone controllers.
+· Provides a unified API for global services (Digital Twin, Global Decision Engine) to query and command zones.
+· Manages service discovery and routing across clusters.
+· Implements rate limiting, authentication, and audit logging for all cross‑zone communication.
+
+4.2 Zone Controller
+
+Each zone (2–5) has a Zone Controller—a software suite running in the zone’s micro data center. Responsibilities:
+
+· Local State Management: Maintains a real‑time model of all assets in the zone (devices, people, environmental conditions).
+· Local Decision Making: Executes zone‑specific control loops (e.g., classroom comfort, robot coordination) using pre‑deployed AI models.
+· Command Execution: Translates high‑level goals (e.g., "reduce energy consumption by 10%") into device‑specific commands via the Actuation Manager.
+· Health Monitoring: Reports anomalies to the Safety Monitor.
+· Buffering & Sync: Stores telemetry locally when disconnected and replays to the core upon reconnection.
+
+4.3 Global Decision Engine (GDE)
+
+The GDE (Zone 1) is responsible for campus‑wide optimization and planning. It:
+
+· Runs quantum‑inspired optimization for energy, scheduling, and resource allocation.
+· Uses predictive models (trained on historical data) to forecast demand (energy, classroom usage, etc.).
+· Generates optimal setpoints and goals for each zone controller (e.g., "pre‑cool Zone 3 by 2°C before the 2 PM lecture").
+· Coordinates cross‑zone activities (e.g., autonomous shuttle routing between zones).
+
+4.4 Digital Twin Integration
+
+The Digital Twin is a live, 3D simulation of the campus. It:
+
+· Receives continuous state updates from all zone controllers.
+· Runs "what‑if" scenarios requested by the GDE or human operators.
+· Provides a visualization interface for human supervisors.
+· Feeds simulated outcomes back to the GDE for planning.
+
+4.5 Sensor Fusion
+
+Sensor Fusion components run at both edge and core. They combine data from multiple sources (e.g., cameras, wearables, environmental sensors) to produce higher‑level insights:
+
+· Occupancy detection (fusion of Wi‑Fi probes, CO2 sensors, camera counts).
+· Human activity recognition (wearable motion + camera).
+· Anomaly detection (identifying equipment malfunction from vibration + power data).
+
+Fusion at the edge reduces bandwidth and preserves privacy (e.g., camera feeds are processed locally; only anonymized counts are sent).
+
+4.6 Actuation Manager
+
+Each zone controller includes an Actuation Manager that:
+
+· Maintains a registry of all actuators (lights, HVAC, robot arms, digital signs) and their capabilities.
+· Translates high‑level commands ("set temperature to 22°C") into device‑specific protocols (BACnet, Modbus, ROS 2 actions).
+· Ensures commands are within safety limits (e.g., no sudden temperature swings).
+· Handles command retries and reports execution status.
+
+4.7 Safety Monitor
+
+A cross‑cutting component that continuously evaluates whether the system operates within safe bounds. It:
+
+· Monitors sensor data for hazardous conditions (fire, gas leak, unauthorized access).
+· Watches actuator commands for violations of safety policies (e.g., robot speed limits).
+· Can trigger immediate safety overrides (e.g., shut down a malfunctioning robot, open emergency exits).
+· Logs all safety events and alerts human operators.
+
+The Safety Monitor runs at both edge (for fast reaction) and core (for campus‑wide correlation). It is implemented as a separate, highly trusted service with minimal dependencies.
+
+4.8 Human‑in‑the‑Loop (HITL) Console
+
+The HITL Console provides human operators (campus management, security, ethics board) with:
+
+· A real‑time dashboard of autonomous decisions and their explanations.
+· The ability to approve, reject, or modify pending decisions (e.g., approve a research experiment that uses hazardous materials).
+· Emergency stop buttons that can isolate zones or revert to manual mode.
+
+All HITL interactions are recorded in the immutable audit log.
+
+---
+
+5. Control Loops
+
+The ACCS implements a hierarchy of control loops with different time horizons.
+
+5.1 Fast Local Loops (milliseconds to seconds)
+
+· Robot obstacle avoidance: On‑robot controllers (edge) react to sensor data to avoid collisions.
+· Lighting adjustment: Zone Controller dims lights based on real‑time occupancy.
+· Emergency response: Safety Monitor triggers alarms and lockdowns immediately.
+
+These loops run entirely at the edge, with no dependency on the core.
+
+5.2 Medium‑Term Loops (seconds to minutes)
+
+· HVAC setpoint adjustment: Zone Controller adjusts temperature based on current occupancy and weather.
+· Robot task coordination: Zone Controller assigns tasks to multiple robots to avoid conflicts.
+· Energy load shedding: Zone Controller reduces non‑critical loads when local solar generation drops.
+
+These loops may involve local AI models and can continue during core disconnection.
+
+5.3 Global Loops (minutes to hours)
+
+· Energy optimization: GDE computes optimal microgrid dispatch every 5 minutes using quantum annealing.
+· Shuttle routing: GDE replans autonomous shuttle routes based on predicted demand.
+· Classroom scheduling: GDE adjusts room assignments to optimize space usage.
+
+These loops require core connectivity and may involve human approval for significant changes.
+
+5.4 Learning Loops (days to months)
+
+· Model retraining: New data is used to retrain predictive models (e.g., energy demand, student engagement). Training occurs in Zone 1, and updated models are deployed to edge zones via GitOps.
+· Policy refinement: Long‑term analysis of campus operations feeds into policy updates (e.g., adjusting temperature setpoints for comfort vs. energy savings).
+
+---
+
+6. AI/ML Integration
+
+The ACCS embeds AI at multiple levels:
+
+6.1 Predictive Models
+
+· Energy demand forecasting: LSTM models trained on historical weather, occupancy, and usage patterns.
+· Student engagement prediction: Models using wearable data, interaction logs, and academic history to identify students at risk.
+· Maintenance prediction: Anomaly detection on equipment telemetry to predict failures.
+
+Models are versioned, stored in a model registry (MLflow), and deployed to edge zones via a sidecar inference server (TensorFlow Serving, Triton).
+
+6.2 Optimization Algorithms
+
+· Quantum‑inspired annealing for energy dispatch, shuttle routing, and timetable optimization (runs on quantum or classical hardware in Zone 1).
+· Reinforcement learning for adaptive HVAC control (trained in simulation, deployed to zone controllers).
+
+6.3 Computer Vision
+
+· Occupancy counting (edge‑processed camera feeds).
+· Safety monitoring (detecting spills, obstructions).
+· Research assistance (tracking experiments in Zone 2).
+
+All vision processing is done at the edge with privacy filters; only metadata is transmitted.
+
+6.4 Natural Language Processing
+
+· AI Tutor (Zone 3) uses LLMs for conversational support.
+· Voice commands for hands‑free control in labs and residences.
+
+---
+
+7. Autonomous Workflows
+
+7.1 Energy Autonomy Workflow
+
+1. Forecast: GDE retrieves weather forecast and predicts campus energy demand for the next 24 hours.
+2. Optimize: Quantum optimizer computes the optimal mix of solar, hydrogen, and grid import to minimize cost and carbon.
+3. Dispatch: GDE sends setpoints to Zone 4 microgrid controller and consumption targets to other zone controllers.
+4. Local Adjust: Zone controllers adjust HVAC, lighting, and equipment schedules to meet targets.
+5. Monitor: Safety Monitor ensures grid stability and voltage limits are not violated.
+6. Feedback: Actual consumption is logged, and model is retrained periodically.
+
+7.2 Personalized Learning Intervention
+
+1. Sense: Student wearables and classroom sensors indicate waning attention during a lecture.
+2. Fuse: Zone 3 controller combines data and runs a local engagement model.
+3. Decide: Model predicts high risk of disengagement; recommends a micro‑intervention (short AR simulation).
+4. Execute: Zone controller triggers the AR session on the student’s headset.
+5. Learn: Outcome (engagement after intervention) is stored for model improvement.
+
+7.3 Autonomous Research Experiment
+
+1. Request: Researcher submits experiment protocol via portal.
+2. Plan: GDE (with human approval) decomposes protocol into robot tasks and schedules lab resources.
+3. Execute: Zone 2 controller commands robots to prepare samples, run synthesis, and collect data.
+4. Monitor: Safety Monitor oversees robot actions; video feeds are available for remote human oversight.
+5. Report: Experiment data is automatically tagged and stored in the research data lake; researcher is notified.
+
+---
+
+8. Human‑in‑the‑Loop and Override Mechanisms
+
+8.1 Decision Tiers
+
+· Tier 1 (Fully Autonomous): Routine actions with low risk (e.g., dimming lights, adjusting classroom temperature). No human involvement.
+· Tier 2 (Human‑on‑the‑Loop): Actions that could impact comfort or have minor consequences (e.g., changing classroom schedule). Human can veto within a timeout.
+· Tier 3 (Human‑in‑the‑Loop): High‑risk actions (e.g., starting a new chemical experiment, lockdown). Require explicit human approval.
+· Tier 4 (Manual Only): Actions that are never automated (e.g., activating fire suppression systems). Controlled by physical switches.
+
+8.2 Override Mechanisms
+
+· Software Override: Operators can issue override commands via the HITL Console. Overrides are logged and can be temporary or permanent.
+· Hardware Interlock: Physical "stop" buttons and key switches directly cut power or isolate systems, bypassing software.
+· Degradation: If a zone loses core connectivity, it operates in a "safe mode" with reduced functionality (e.g., no global optimization) but continues local control.
+
+---
+
+9. Data Management
+
+9.1 Real‑Time Data Streams
+
+All sensor data and system events flow through Apache Kafka. Topics are organized by zone and data type. Zone controllers publish to local Kafka brokers; core subscribers consume and persist.
+
+9.2 Historical Data Lake
+
+Data from Kafka is landed into an Apache Iceberg‑based data lake (in Zone 1) for long‑term storage, analytics, and model training. Retention policies are applied per data type (e.g., video metadata kept 30 days, energy data kept 10 years).
+
+9.3 Model Training Pipeline
+
+· Feature Store: Processed data from the data lake is stored in a feature store (Feast) for easy access by ML engineers.
+· Training: Models are trained on GPU clusters using Kubeflow. Experiments are tracked.
+· Validation: Models are validated against holdout data and tested for bias/fairness.
+· Deployment: Approved models are packaged into containers and deployed via GitOps to edge zones.
+
+---
+
+10. Security Considerations
+
+· Authentication & Authorization: All component‑to‑component communication uses mTLS (Istio). User access is via OAuth2/OIDC with fine‑grained roles.
+· Audit Trail: Every autonomous decision (especially those affecting humans) is logged in an immutable blockchain ledger.
+· Secure Boot & Measured Boot: Edge devices verify software integrity at startup.
+· Network Segmentation: Zones are isolated; only necessary communication paths are allowed.
+· Privacy: Personal data is pseudonymized or processed at the edge; consent is enforced by the Governance service.
+
+---
+
+11. Deployment Architecture
+
+The ACCS is deployed across two tiers:
+
+11.1 Core (Zone 1)
+
+· Kubernetes clusters for global services (GDE, Digital Twin, model training).
+· Stateful services (Kafka, data lake, model registry) with persistent storage.
+· High availability: Multi‑master, distributed across availability zones.
+
+11.2 Edge (Zones 2–5)
+
+· K3s clusters in each zone’s micro data center.
+· Local control services (Zone Controller, Sensor Fusion, Actuation Manager) as Kubernetes deployments.
+· Local data buffering (Kafka at edge, Longhorn for state).
+· Autonomy: Can operate disconnected indefinitely; changes sync when connected.
+
+---
+
+12. APIs and Integrations
+
+The ACCS exposes APIs for external systems and internal components:
+
+· Internal APIs: gRPC (for low‑latency) and REST (for management). Used by zone controllers to talk to core.
+· External APIs: REST/HTTPS (as defined in the QSU API Specification) for third‑party applications (student apps, partner research tools).
+· Webhooks: For event notifications to external systems.
+· Device Integration: Protocol adapters (Modbus, BACnet, OPC‑UA, ROS 2) translate device‑specific protocols to internal events.
+
+---
+
+13. Implementation Roadmap
+
+Phase Focus Key Deliverables
+Phase 1 (Foundation) Core messaging, edge foundation Kafka cluster, basic zone controller skeleton, sensor fusion prototypes
+Phase 2 (Energy & Residential) Zone 4/5 control loops Energy optimizer integration, HITL Console basics, safety monitor
+Phase 3 (Learning) AI tutor integration, zone 3 controller Edge AI inference, engagement models, AR/VR control
+Phase 4 (Research) Robotics coordination, quantum scheduler Robot control framework, experiment workflow engine
+Phase 5 (Full Integration) Global decision engine, digital twin, governance GDE with quantum optimization, full digital twin sync, ethics audit
+
+---
+
+14. Conclusion
+
+The Autonomous Campus Control Software Architecture provides a robust, scalable, and ethically grounded foundation for the Quenne Smart University. By distributing intelligence across edge and core, embedding safety at all levels, and keeping humans in the loop, the ACCS enables the campus to operate efficiently, adaptively, and securely. This architecture will serve as the blueprint for development, ensuring that the university remains at the forefront of intelligent environments.
+
+---
+
+Document Control
+
+Version Date Author Changes
+1.0 [Date] QSU Software Architecture Team Initial release
