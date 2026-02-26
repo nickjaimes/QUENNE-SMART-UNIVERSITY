@@ -1,11 +1,5 @@
 Quenne Smart University: A Cognitive Cyber-Physical Architecture for Next-Generation Intelligent Campuses
 
-Helmo K. Morales Paredes, Luis de Oro Arenas, Eduardo Paciencia Godoy, Fernando Pinhabel Marafao, Bruno Oliveira Zarpellon
-
-Institute of Science and Technology, São Paulo State University (UNESP), Sorocaba, Brazil
-
----
-
 Abstract
 
 The concept of smart campuses has evolved from a mere testbed for smart city technologies into a distinct and impactful domain of inquiry in its own right. This paper presents the complete architectural blueprint of the Quenne Smart University (QSU), a first-of-its-kind cognitive cyber-physical ecosystem designed to integrate artificial intelligence, quantum computing, sustainable energy systems, and immersive learning environments into a unified intelligent campus. The proposed architecture treats the university not as a collection of buildings with technology overlaid, but as a living organism—a distributed system where physical infrastructure (Zones 1-5) and digital intelligence (the Cognitive Core) are inseparably intertwined. We detail the foundational principles, layered system design, data fabric, security model, and governance frameworks that enable real-time optimization, personalized education, autonomous research, and energy self-sufficiency. A phased implementation roadmap is presented, along with performance specifications and evaluation metrics. This work serves as a reference for academic institutions, urban planners, and technology partners seeking to build or understand the next generation of intelligent environments.
