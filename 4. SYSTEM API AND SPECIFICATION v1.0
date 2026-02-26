@@ -1,0 +1,669 @@
+Quenne Smart University – System API & Specification v1.0
+
+Version: 1.0
+Last Updated: [Current Date]
+Document ID: QSU-API-SPEC-001
+Status: Release Candidate
+
+---
+
+1. Introduction
+
+The Quenne Smart University System API provides programmatic access to all core capabilities of the intelligent campus. It enables internal applications (dashboards, mobile apps, research tools) and external partners to interact with the university's cognitive infrastructure securely and in real time.
+
+1.1 Design Principles
+
+· RESTful – Resource-oriented URLs, standard HTTP methods, and status codes.
+· JSON – Primary data interchange format (UTF-8).
+· Stateless – Each request contains all necessary information (authentication, context).
+· Hypermedia – HATEOAS principles for discoverability (optional but encouraged).
+· Event-driven – Webhooks for asynchronous notifications.
+
+1.2 Base URL
+
+All API endpoints are relative to the following base URL:
+
+```
+https://api.quenne.edu/v1
+```
+
+Sandbox Environment:
+
+```
+https://sandbox.api.quenne.edu/v1
+```
+
+1.3 Authentication
+
+The API uses OAuth 2.0 (Bearer tokens) for user-level authentication and API keys for service-to-service communication.
+
+· OAuth 2.0 Flows: Authorization Code Grant (for interactive apps) and Client Credentials Grant (for server-to-server).
+· API Key: Include in the X-API-Key header for machine clients.
+
+Tokens are short-lived (1 hour) and must be refreshed using a refresh token.
+
+1.4 Versioning
+
+The API is versioned through the URL path (/v1/). Backward-compatible changes (adding fields, new endpoints) will be introduced within the same version. Breaking changes will result in a new version (e.g., /v2/).
+
+1.5 Rate Limiting
+
+· Authenticated users: 1000 requests per hour.
+· Service accounts (API keys): 10,000 requests per hour.
+· Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset.
+
+1.6 Error Handling
+
+Standard HTTP status codes are used. Error responses follow this format:
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Detailed error description.",
+    "details": { ... } // optional structured information
+  }
+}
+```
+
+Common codes: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 429 Too Many Requests, 500 Internal Server Error.
+
+1.7 Pagination
+
+List endpoints support pagination via limit and offset query parameters. The response includes a pagination object with total, limit, offset, and next_url.
+
+---
+
+2. Common Data Models
+
+These models are reused across multiple services.
+
+2.1 User
+
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "roles": ["student", "faculty", "researcher"],
+  "profile": {
+    "full_name": "Jane Doe",
+    "department": "Computer Science",
+    "zone_access": ["zone1", "zone3"]
+  }
+}
+```
+
+2.2 Device
+
+```json
+{
+  "id": "uuid",
+  "type": "sensor|actuator|robot|hvac|light",
+  "zone_id": "zone3",
+  "status": "online|offline|maintenance",
+  "capabilities": ["measure_temperature", "set_intensity"],
+  "last_seen": "2025-03-15T10:30:00Z"
+}
+```
+
+2.3 Location
+
+```json
+{
+  "zone_id": "zone3",
+  "building": "Learning Hub",
+  "floor": 2,
+  "coordinates": {
+    "x": 12.5,
+    "y": 34.8,
+    "z": 1.2
+  }
+}
+```
+
+2.4 Timestamp
+
+All timestamps are in ISO 8601 format (UTC): YYYY-MM-DDTHH:mm:ss.sssZ.
+
+---
+
+3. Core Services API
+
+3.1 Cognitive Core API
+
+Base Path: /cognitive
+
+3.1.1 Submit AI Inference Job
+
+```http
+POST /cognitive/inference
+```
+
+Request Body:
+
+```json
+{
+  "model_id": "tutor-llm-v3",
+  "input": {
+    "prompt": "Explain quantum entanglement to a 10-year-old.",
+    "max_tokens": 200
+  },
+  "priority": "normal|high|low"
+}
+```
+
+Response (202 Accepted):
+
+```json
+{
+  "job_id": "uuid",
+  "status": "queued",
+  "estimated_completion": "2025-03-15T10:31:00Z",
+  "result_url": "/cognitive/inference/jobs/{job_id}/result"
+}
+```
+
+3.1.2 Get Inference Result
+
+```http
+GET /cognitive/inference/jobs/{job_id}/result
+```
+
+Response (200 OK):
+
+```json
+{
+  "job_id": "uuid",
+  "status": "completed",
+  "output": {
+    "text": "Quantum entanglement is like having two magical coins...",
+    "tokens_used": 180
+  },
+  "completed_at": "2025-03-15T10:30:45Z"
+}
+```
+
+3.1.3 Submit Quantum Optimization Problem
+
+```http
+POST /cognitive/quantum/optimize
+```
+
+Request Body:
+
+```json
+{
+  "problem_type": "routing|scheduling|simulation",
+  "parameters": {
+    "locations": ["zone1", "zone2", "zone3"],
+    "constraints": { ... }
+  },
+  "backend": "auto|ibm_system2|quantinuum_h2"
+}
+```
+
+Response: similar job-based pattern.
+
+3.1.4 List Available Models
+
+```http
+GET /cognitive/models
+```
+
+Returns a list of AI/ML models available for inference.
+
+3.2 Intelligent Learning System API
+
+Base Path: /learning
+
+3.2.1 Get Student Progress
+
+```http
+GET /learning/students/{student_id}/progress
+```
+
+Response:
+
+```json
+{
+  "student_id": "uuid",
+  "courses": [
+    {
+      "course_id": "CS101",
+      "completion": 0.75,
+      "mastery_level": 0.82,
+      "next_recommendation": "quantum_basics_module"
+    }
+  ],
+  "recent_sessions": [
+    {
+      "session_id": "uuid",
+      "start_time": "2025-03-14T14:00:00Z",
+      "duration_minutes": 45,
+      "engagement_score": 0.9
+    }
+  ]
+}
+```
+
+3.2.2 Start AI Tutor Session
+
+```http
+POST /learning/tutor/sessions
+```
+
+Request:
+
+```json
+{
+  "student_id": "uuid",
+  "course_id": "CS101",
+  "topic": "quantum_entanglement",
+  "mode": "text|voice|vr"
+}
+```
+
+Response:
+
+```json
+{
+  "session_id": "uuid",
+  "tutor_endpoint": "wss://tutor.quenne.edu/v1/sessions/{session_id}",
+  "initial_message": "Hello! Let's explore quantum entanglement..."
+}
+```
+
+WebSocket connection for real-time chat.
+
+3.2.3 Launch AR/VR Experience
+
+```http
+POST /learning/ar-vr/sessions
+```
+
+Request:
+
+```json
+{
+  "user_id": "uuid",
+  "experience_id": "solar_system_tour",
+  "headset_type": "quest_pro|vision_pro",
+  "zone_id": "zone3"
+}
+```
+
+Response:
+
+```json
+{
+  "session_id": "uuid",
+  "stream_url": "wss://xr.quenne.edu/v1/stream/{session_id}",
+  "expires_at": "2025-03-15T11:00:00Z"
+}
+```
+
+3.3 Autonomous Research Labs API
+
+Base Path: /research
+
+3.3.1 Control a Robot
+
+```http
+POST /research/robots/{robot_id}/commands
+```
+
+Request:
+
+```json
+{
+  "command": "move_to|grab|release|run_experiment",
+  "parameters": {
+    "location": {"x": 10.2, "y": 5.5, "z": 0.0},
+    "object_id": "sample_123"
+  }
+}
+```
+
+Response (202):
+
+```json
+{
+  "command_id": "uuid",
+  "status": "pending",
+  "estimated_completion": "..."
+}
+```
+
+3.3.2 Retrieve Experiment Data
+
+```http
+GET /research/experiments/{experiment_id}/data
+```
+
+Response:
+
+```json
+{
+  "experiment_id": "uuid",
+  "title": "Quantum Dot Synthesis",
+  "timestamp": "...",
+  "measurements": [
+    {"time": 0.0, "value": 1.23},
+    ...
+  ],
+  "data_files": [
+    {"name": "spectrum.csv", "url": "/research/experiments/{id}/files/spectrum.csv"}
+  ]
+}
+```
+
+3.3.3 List Available Lab Equipment
+
+```http
+GET /research/equipment?zone_id=zone2&type=quantum_computer
+```
+
+3.4 Energy Management API
+
+Base Path: /energy
+
+3.4.1 Get Real-Time Microgrid Status
+
+```http
+GET /energy/status
+```
+
+Response:
+
+```json
+{
+  "timestamp": "2025-03-15T10:35:00Z",
+  "generation": {
+    "solar_kw": 450,
+    "hydrogen_kw": 100,
+    "magnetic_harvesting_kw": 5
+  },
+  "consumption_kw": 480,
+  "storage": {
+    "battery_soc_percent": 78,
+    "hydrogen_kg": 850
+  },
+  "grid_import_kw": 0,
+  "co2_saved_kg": 1250
+}
+```
+
+3.4.2 Set Energy Policy
+
+```http
+POST /energy/policy
+```
+
+Request:
+
+```json
+{
+  "mode": "eco|balanced|performance",
+  "max_grid_import_kw": 100,
+  "priority_zones": ["zone1", "zone2"]
+}
+```
+
+Response: updated policy.
+
+3.4.3 Get Historical Energy Data
+
+```http
+GET /energy/history?start=2025-03-01&end=2025-03-15&resolution=hour
+```
+
+3.5 Residential API
+
+Base Path: /residential
+
+3.5.1 Control Smart Home Device
+
+```http
+POST /residential/devices/{device_id}/control
+```
+
+Request:
+
+```json
+{
+  "action": "set_temperature|set_lighting|lock_door",
+  "value": 22.5
+}
+```
+
+Response: current device state.
+
+3.5.2 Get Resident Profile & Preferences
+
+```http
+GET /residential/residents/{resident_id}
+```
+
+Response:
+
+```json
+{
+  "resident_id": "uuid",
+  "unit": "5B",
+  "preferences": {
+    "default_temperature": 21,
+    "lighting_scene": "relax"
+  },
+  "energy_usage_today_kwh": 2.3
+}
+```
+
+3.5.3 Book Autonomous Shuttle
+
+```http
+POST /residential/mobility/book
+```
+
+Request:
+
+```json
+{
+  "pickup_location": {"zone_id": "zone5", "building": "Tower A"},
+  "dropoff_location": {"zone_id": "zone3"},
+  "desired_time": "2025-03-15T11:00:00Z"
+}
+```
+
+Response: booking confirmation with vehicle ID and ETA.
+
+3.6 Digital Twin API
+
+Base Path: /twin
+
+3.6.1 Get Current State of an Asset
+
+```http
+GET /twin/assets/{asset_id}
+```
+
+Response:
+
+```json
+{
+  "asset_id": "sensor_temp_1234",
+  "type": "temperature_sensor",
+  "location": { ... },
+  "properties": {
+    "temperature_c": 22.3,
+    "humidity": 45
+  },
+  "last_update": "2025-03-15T10:36:00Z"
+}
+```
+
+3.6.2 Query Digital Twin by Zone
+
+```http
+GET /twin/zones/{zone_id}/assets?type=hvac
+```
+
+3.6.3 Trigger Simulation
+
+```http
+POST /twin/simulations
+```
+
+Request:
+
+```json
+{
+  "scenario": "evacuation|energy_peak|student_flow",
+  "parameters": {
+    "duration_minutes": 30,
+    "starting_conditions": { ... }
+  }
+}
+```
+
+Response: simulation ID and status URL.
+
+3.6.4 Get 3D Scene URL
+
+```http
+GET /twin/scene?zone_id=zone3&viewpoint=overhead
+```
+
+Response:
+
+```json
+{
+  "scene_url": "https://twin.quenne.edu/viewer/?token=..."
+}
+```
+
+3.7 Governance & Ethics API
+
+Base Path: /governance
+
+3.7.1 Retrieve Audit Logs
+
+```http
+GET /governance/audit?actor_type=ai&from=2025-03-01&to=2025-03-15
+```
+
+Response:
+
+```json
+{
+  "logs": [
+    {
+      "timestamp": "2025-03-14T09:23:00Z",
+      "actor": "ai_tutor_v3",
+      "action": "recommend_course",
+      "target": "student_123",
+      "decision_id": "dec_456",
+      "explanation_url": "/governance/explain/dec_456"
+    }
+  ]
+}
+```
+
+3.7.2 Get Explanation for AI Decision
+
+```http
+GET /governance/explain/{decision_id}
+```
+
+Response:
+
+```json
+{
+  "decision_id": "dec_456",
+  "model": "tutor-llm-v3",
+  "input": { ... },
+  "output": { ... },
+  "explanation": "The student was recommended CS102 because they scored 85% in prerequisite CS101 and showed interest in AI.",
+  "feature_importance": {
+    "prerequisite_score": 0.7,
+    "interest_signal": 0.3
+  }
+}
+```
+
+3.7.3 Manage User Consent
+
+```http
+POST /governance/consent
+```
+
+Request:
+
+```json
+{
+  "user_id": "uuid",
+  "purpose": "learning_analytics|biometric_tracking|research_participation",
+  "status": "granted|revoked"
+}
+```
+
+Response: updated consent record.
+
+---
+
+4. Webhooks
+
+The system can send asynchronous events to registered HTTP endpoints. Register a webhook via:
+
+```http
+POST /webhooks
+```
+
+Request:
+
+```json
+{
+  "url": "https://myapp.com/quenne-events",
+  "events": ["energy.peak", "robot.error", "tutor.session.ended"],
+  "secret": "shared_secret_for_signing"
+}
+```
+
+Event payload example:
+
+```json
+{
+  "event": "energy.peak",
+  "timestamp": "2025-03-15T10:40:00Z",
+  "data": {
+    "consumption_kw": 600,
+    "threshold": 550
+  }
+}
+```
+
+All webhook payloads are signed with the X-Signature header (HMAC-SHA256 of the body using the secret).
+
+---
+
+5. SDK & Tools
+
+Official client libraries are available for:
+
+· Python (pip install quenne-sdk)
+· JavaScript/TypeScript (npm install @quenne/api-client)
+· Java, Go, etc. (community supported)
+
+Postman Collection: [Download Link]
+
+OpenAPI Specification: Available at https://api.quenne.edu/v1/swagger.json
+
+---
+
+6. Change Log
+
+Version Date Description
+1.0 [Date] Initial release
+
+---
+
+This API specification is subject to the Quenne Smart University governance policies and may be updated with backward-compatible changes. For questions, contact api-support@quenne.edu.
